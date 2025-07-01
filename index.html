@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> quiz webpage</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #141e30, #243b55);
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        .difficulty {
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #00bcd4;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #008c9e;
+        }
+        #timer {
+            font-size: 1.2em;
+            margin: 20px 0;
+        }
+        .question {
+            margin: 20px auto;
+            padding: 20px;
+            background: #1c2833;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+        }
+        .results {
+            margin: 20px;
+            padding: 20px;
+            background: #2e4053;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        .correct {
+            color: #4caf50;
+        }
+        .incorrect {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Trivia Game</h1>
+    <p>Select a difficulty level to start:</p>
+    <div class="difficulty">
+        <button onclick="startGame('easy')">Easy</button>
+        <button onclick="startGame('medium')">Medium</button>
+        <button onclick="startGame('hard')">Hard</button>
+    </div>
+    <div id="timer"></div>
+    <div id="questions-container"></div>
+    <div id="score"></div>
+    <div id="results"></div>
+
+    <script>
+        let score = 0;
+        let timer;
+        let timeLeft = 60; // 60 seconds for the quiz
+        let questionsData = [];
+
+        function startGame(difficulty) {
+            score = 0;
+            timeLeft = 60;
+            document.getElementById('score').textContent = '';
+            document.getElementById('results').innerHTML = '';
+            fetchQuestions(difficulty);
+            startTimer();
+        }
+
+        async function fetchQuestions(difficulty) {
+            const url = `https://opentdb.com/api.php?amount=10&category=18&difficulty=easy&type=multiple`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                questionsData = data.results;
+                displayQuestions(questionsData);
+            } catch (error) {
+                console.error('Error fetching questions:', error);
+            }
+        }
+
+        function displayQuestions(questions) {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            questions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+
+                const decodedQuestion = new DOMParser().parseFromString(question.question, 'text/html').body.textContent;
+
+                questionDiv.innerHTML = `
+                    <h3>Question ${index + 1}</h3>
+                    <p>${decodedQuestion}</p>
+                    ${generateOptions(question, index)}
+                `;
+                container.appendChild(questionDiv);
+            });
+        }
+
+        function generateOptions(question, index) {
+            const options = [...question.incorrect_answers, question.correct_answer];
+            options.sort(() => Math.random() - 0.5);
+
+            return options.map(option => {
+                const decodedOption = new DOMParser().parseFromString(option, 'text/html').body.textContent;
+                return `<button onclick="checkAnswer(this, '${question.correct_answer.replace(/'/g, "\\'")}', ${index})">${decodedOption}</button>`;
+            }).join('');
+        }
+
+        function checkAnswer(button, correctAnswer, index) {
+            const selectedAnswer = button.textContent;
+            const parent = button.parentElement;
+
+            if (selectedAnswer === correctAnswer) {
+                button.style.backgroundColor = 'green';
+                button.style.color = 'white';
+                score++;
+            } else {
+                button.style.backgroundColor = 'red';
+                button.style.color = 'white';
+            }
+
+            Array.from(parent.children).forEach(btn => btn.disabled = true);
+
+            if (index === questionsData.length - 1) {
+                endGame();
+            }
+        }
+
+        function startTimer() {
+            clearInterval(timer);
+            const timerElement = document.getElementById('timer');
+            timerElement.textContent = `Time Left: ${timeLeft}s`;
+
+            timer = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = `Time Left: ${timeLeft}s`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timer);
+            document.getElementById('questions-container').innerHTML = '';
+            document.getElementById('score').textContent = `Your Score: ${score}/${questionsData.length}`;
+            displayCorrectAnswers();
+        }
+
+        function displayCorrectAnswers() {
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = '<h2>Correct Answers:</h2>';
+
+            questionsData.forEach((question, index) => {
+                const decodedAnswer = new DOMParser().parseFromString(question.correct_answer, 'text/html').body.textContent;
+                resultsContainer.innerHTML += `<p>Question ${index + 1}: <span class="correct">${decodedAnswer}</span></p>`;
+            });
+        }
+    </script>
+</body>
+</html>
